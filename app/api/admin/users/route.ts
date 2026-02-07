@@ -7,18 +7,34 @@ import bcrypt from 'bcryptjs'
 export const runtime = 'nodejs'
 
 function checkAdmin(req: NextRequest) {
-  const header = req.headers.get('x-admin-code') || req.headers.get('X-Admin-Code')
+  // Accept header (case-insensitive via Fetch Headers), or query param for quick testing
+  const header = req.headers.get('x-admin-code') || req.headers.get('X-Admin-Code') || ''
+  const url = new URL(req.url)
+  const q = url.searchParams.get('admin_code') || ''
   const env = process.env.ADMIN_CODE || ''
   if (!env) return false
-  return header === env
+  return header === env || q === env
 }
 
 export async function GET(req: NextRequest) {
   try {
     if (!checkAdmin(req)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    const { data, error } = await supabaseServer.from('usuarios').select('id, codigo_acceso, nombre, avatar_url, password_hash, lock_password, app_locked')
+    const { data, error } = await supabaseServer
+      .from('usuarios')
+      .select('id, codigo_acceso, nombre, avatar_url, password_hash, lock_password, app_locked')
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ users: data })
+
+    // Remove raw password_hash from output for safety; keep a boolean instead
+    const safe = (data || []).map((u: any) => ({
+      id: u.id,
+      codigo_acceso: u.codigo_acceso,
+      nombre: u.nombre,
+      avatar_url: u.avatar_url,
+      has_password: !!u.password_hash,
+      lock_password: u.lock_password,
+      app_locked: !!u.app_locked,
+    }))
+    return NextResponse.json({ users: safe })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || String(e) }, { status: 500 })
   }
@@ -27,7 +43,23 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     if (!checkAdmin(req)) return NextResponse.json({ error: 'forbidden' }, { status: 403 })
-    const body = await req.json()
+    // Robust body parsing: try json(), else fallback to text -> JSON or urlencoded
+    let body: any = {}
+    try {
+      body = await req.json()
+    } catch (err) {
+      const txt = await req.text()
+      try {
+        body = JSON.parse(txt || '{}')
+      } catch (e) {
+        // try urlencoded form
+        const params = new URLSearchParams(txt || '')
+        body = {}
+        params.forEach((v, k) => {
+          body[k] = v
+        })
+      }
+    }
     const id = body.id
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
