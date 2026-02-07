@@ -1,3 +1,4 @@
+````markdown
 # Next Supabase Chat — Starter
 
 This workspace contains a starter Next.js (App Router) project scaffold for a chat application using Supabase and Tailwind.
@@ -28,3 +29,10 @@ I can continue by:
 - Implementing file upload endpoint and storage integration for `chat-media`.
 - Adding Realtime/Subscriptions using the Supabase client in `ChatWindow`.
 - Implementing friend search/add modal and full profile update API.
+
+
+---
+
+Redeploy trigger: Updated README to request redeploy at 2026-02-07T21:50:00Z
+
+````
