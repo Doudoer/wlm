@@ -142,10 +142,14 @@ self.addEventListener('fetch', (event) => {
           const res = await fetch(req)
           if (res && res.ok) {
             try {
+              // Only cache JSON API responses to avoid storing HTML pages under API URLs
+              const ct = res.headers.get('Content-Type') || ''
               const proto = new URL(req.url).protocol || ''
-              if (proto.startsWith('http')) await cache.put(req, res.clone())
+              if (proto.startsWith('http') && ct.includes('application/json')) {
+                await cache.put(req, res.clone())
+              }
             } catch (_) {
-              // skip cache.put for unsupported URL schemes
+              // skip cache.put for unsupported schemes or other errors
             }
           }
           return res
