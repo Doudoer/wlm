@@ -18,7 +18,8 @@ export async function POST(req: NextRequest) {
           try {
             const params = new URLSearchParams(raw)
             const obj: any = {}
-            for (const [k, v] of params.entries()) obj[k] = v
+            // Avoid destructuring iteration to keep compatibility with TS target settings
+            params.forEach((v, k) => { obj[k] = v })
             if (Object.keys(obj).length) body = obj
           } catch (e2) {
             body = {}
