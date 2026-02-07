@@ -6,13 +6,29 @@ import bcrypt from 'bcryptjs'
 
 export async function POST(req: NextRequest) {
   try {
+    // Robust body parsing: read raw text once and try JSON, then form-encoded fallback.
     let body: any = {}
     try {
-      const ct = req.headers.get?.('content-type')
-      if (ct && ct.includes('application/json')) body = await req.json()
+      const raw = await req.text()
+      if (raw) {
+        try {
+          body = JSON.parse(raw)
+        } catch (e) {
+          // not JSON, try URLSearchParams (form-encoded)
+          try {
+            const params = new URLSearchParams(raw)
+            const obj: any = {}
+            for (const [k, v] of params.entries()) obj[k] = v
+            if (Object.keys(obj).length) body = obj
+          } catch (e2) {
+            body = {}
+          }
+        }
+      }
     } catch (e) {
       body = {}
     }
+    console.log('[login] parsed body:', body)
     const { codigo_acceso, password } = body
     if (!codigo_acceso) {
       return NextResponse.json({ error: 'codigo_acceso required' }, { status: 400 })
