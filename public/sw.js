@@ -6,7 +6,7 @@
 
 const STATIC_CACHE = 'chat-static-v1'
 const API_CACHE = 'chat-api-v1'
-const STATIC_URLS = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/sw.js']
+const STATIC_URLS = ['/', '/manifest.json', '/icons/icon-192.svg', '/icons/icon-512.svg', '/sw.js']
 
 // tiny idb helper for the outbox queue
 function openDB() {
