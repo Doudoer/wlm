@@ -56,7 +56,23 @@ async function replayOutbox() {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(STATIC_CACHE).then((cache) => cache.addAll(STATIC_URLS)))
+  // Install: try to prefetch and cache static urls but tolerate failures
+  event.waitUntil((async () => {
+    const cache = await caches.open(STATIC_CACHE)
+    for (const url of STATIC_URLS) {
+      try {
+        // only try to fetch same-origin or absolute http(s) urls
+        if (typeof url === 'string' && (url.startsWith('/') || url.startsWith(self.location.origin) || url.startsWith('http'))) {
+          const res = await fetch(url)
+          if (res && res.ok) {
+            try { await cache.put(url, res.clone()) } catch (_) { /* ignore unsupported schemes */ }
+          }
+        }
+      } catch (e) {
+        // ignore individual fetch failures to avoid failing install
+      }
+    }
+  })())
   self.skipWaiting()
 })
 
@@ -121,7 +137,22 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(API_CACHE)
       const cached = await cache.match(req)
-      const network = fetch(req).then((res) => { if (res && res.ok) cache.put(req, res.clone()); return res }).catch(() => null)
+      const network = (async () => {
+        try {
+          const res = await fetch(req)
+          if (res && res.ok) {
+            try {
+              const proto = new URL(req.url).protocol || ''
+              if (proto.startsWith('http')) await cache.put(req, res.clone())
+            } catch (_) {
+              // skip cache.put for unsupported URL schemes
+            }
+          }
+          return res
+        } catch (e) {
+          return null
+        }
+      })()
       return cached || (await network) || new Response('{}', { status: 504 })
     })())
     return
@@ -134,7 +165,14 @@ self.addEventListener('fetch', (event) => {
     if (cached) return cached
     try {
       const res = await fetch(req)
-      if (res && res.ok) cache.put(req, res.clone())
+      if (res && res.ok) {
+        try {
+          const proto = new URL(req.url).protocol || ''
+          if (proto.startsWith('http')) await cache.put(req, res.clone())
+        } catch (_) {
+          // ignore unsupported schemes
+        }
+      }
       return res
     } catch (e) {
       return cached || new Response('Offline', { status: 503 })
